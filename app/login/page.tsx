@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FaUser, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { authService } from '@/lib/auth';
+import { store } from '@/lib/store';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,6 +26,8 @@ export default function LoginPage() {
     const result = authService.login(formData.username, formData.password);
 
     if (result.success && result.user) {
+      // Reinitialize store with current user's data
+      store.setUserId(result.user.id);
       // Redirect based on user role
       const redirectPath = authService.getRoleBasedRedirect(result.user.role);
       router.push(redirectPath);

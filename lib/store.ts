@@ -1,5 +1,6 @@
 // Simple in-memory store for demo purposes
 // In production, this would connect to a database
+// Data is stored per user in localStorage
 
 export interface PaymentRecord {
   id: string;
@@ -102,6 +103,28 @@ class Store {
     },
   ];
   private attendance: Attendance[] = [];
+  private currentUserId: string | null = null;
+
+  // Get user-specific localStorage key
+  private getStorageKey(key: string): string {
+    if (!this.currentUserId) {
+      // Try to get current user
+      if (typeof window !== 'undefined') {
+        const currentUser = localStorage.getItem('currentUser');
+        if (currentUser) {
+          const user = JSON.parse(currentUser);
+          this.currentUserId = user.id;
+        }
+      }
+    }
+    return this.currentUserId ? `${key}_${this.currentUserId}` : key;
+  }
+
+  // Set current user ID and reinitialize data
+  setUserId(userId: string | null): void {
+    this.currentUserId = userId;
+    this.init();
+  }
 
   // Sales methods
   getSales(): Sale[] {
@@ -144,7 +167,7 @@ class Store {
 
   private saveSales(): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('sales', JSON.stringify(this.sales));
+      localStorage.setItem(this.getStorageKey('sales'), JSON.stringify(this.sales));
     }
   }
 
@@ -177,7 +200,7 @@ class Store {
 
   private saveStockItems(): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('stockItems', JSON.stringify(this.stockItems));
+      localStorage.setItem(this.getStorageKey('stockItems'), JSON.stringify(this.stockItems));
     }
   }
 
@@ -210,7 +233,7 @@ class Store {
 
   private saveProducts(): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('products', JSON.stringify(this.products));
+      localStorage.setItem(this.getStorageKey('products'), JSON.stringify(this.products));
     }
   }
 
@@ -243,7 +266,7 @@ class Store {
 
   private saveEmployees(): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('employees', JSON.stringify(this.employees));
+      localStorage.setItem(this.getStorageKey('employees'), JSON.stringify(this.employees));
     }
   }
 
@@ -269,7 +292,7 @@ class Store {
     );
     this.attendance.push(attendance);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('attendance', JSON.stringify(this.attendance));
+      localStorage.setItem(this.getStorageKey('attendance'), JSON.stringify(this.attendance));
     }
   }
 
@@ -278,10 +301,18 @@ class Store {
     return attendance.filter(a => a.status === 'Present').length;
   }
 
-  // Initialize from localStorage
+  // Initialize from localStorage for current user
   init(): void {
     if (typeof window !== 'undefined') {
-      const savedSales = localStorage.getItem('sales');
+      // Get current user ID
+      const currentUser = localStorage.getItem('currentUser');
+      if (currentUser) {
+        const user = JSON.parse(currentUser);
+        this.currentUserId = user.id;
+      }
+
+      // Load user-specific data
+      const savedSales = localStorage.getItem(this.getStorageKey('sales'));
       if (savedSales) {
         this.sales = JSON.parse(savedSales);
         // Migrate old sales to include payment tracking fields
@@ -314,8 +345,12 @@ class Store {
         });
         // Save migrated sales
         this.saveSales();
+      } else {
+        // Reset to empty array if no data for this user
+        this.sales = [];
       }
-      const savedStock = localStorage.getItem('stockItems');
+
+      const savedStock = localStorage.getItem(this.getStorageKey('stockItems'));
       if (savedStock) {
         this.stockItems = JSON.parse(savedStock);
         // Migrate old stock items to include date field
@@ -328,18 +363,35 @@ class Store {
           return item;
         });
         this.saveStockItems();
+      } else {
+        this.stockItems = [];
       }
-      const savedProducts = localStorage.getItem('products');
+
+      const savedProducts = localStorage.getItem(this.getStorageKey('products'));
       if (savedProducts) {
         this.products = JSON.parse(savedProducts);
+      } else {
+        // Initialize with default products for new users
+        this.products = [
+          { id: '1', name: 'Kesar Pedha', description: 'Premium Kesar Pedha', price: 200, unit: 'kg' },
+          { id: '2', name: 'Chocolate Pedha', description: 'Delicious Chocolate Pedha', price: 250, unit: 'kg' },
+          { id: '3', name: 'Plain Pedha', description: 'Traditional Plain Pedha', price: 180, unit: 'kg' },
+        ];
+        this.saveProducts();
       }
-      const savedEmployees = localStorage.getItem('employees');
+
+      const savedEmployees = localStorage.getItem(this.getStorageKey('employees'));
       if (savedEmployees) {
         this.employees = JSON.parse(savedEmployees);
+      } else {
+        this.employees = [];
       }
-      const savedAttendance = localStorage.getItem('attendance');
+
+      const savedAttendance = localStorage.getItem(this.getStorageKey('attendance'));
       if (savedAttendance) {
         this.attendance = JSON.parse(savedAttendance);
+      } else {
+        this.attendance = [];
       }
     }
   }
@@ -348,4 +400,16 @@ class Store {
 export const store = new Store();
 if (typeof window !== 'undefined') {
   store.init();
+  
+  // Reinitialize store when user changes (listen for storage events)
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'currentUser') {
+      store.init();
+    }
+  });
+  
+  // Also reinitialize on focus (in case user switched accounts in another tab)
+  window.addEventListener('focus', () => {
+    store.init();
+  });
 }

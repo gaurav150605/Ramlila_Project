@@ -14,6 +14,7 @@ import {
   FaSignOutAlt
 } from 'react-icons/fa';
 import { authService } from '@/lib/auth';
+import { store } from '@/lib/store';
 
 export default function Header() {
   const pathname = usePathname();
@@ -34,6 +35,10 @@ export default function Header() {
   useEffect(() => {
     const currentUser = authService.getCurrentUser();
     setUser(currentUser);
+    // Reinitialize store when user changes
+    if (currentUser) {
+      store.setUserId(currentUser.id);
+    }
   }, []);
 
   useEffect(() => {
@@ -55,6 +60,7 @@ export default function Header() {
 
   const handleLogout = () => {
     authService.logout();
+    store.setUserId(null);
     router.push('/login');
   };
 

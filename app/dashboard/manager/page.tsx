@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { FaShoppingCart, FaWarehouse, FaCookie, FaChartBar, FaUsers, FaBriefcase } from 'react-icons/fa';
 import { authService } from '@/lib/auth';
+import { store } from '@/lib/store';
 
 export default function ManagerDashboardPage() {
   const router = useRouter();

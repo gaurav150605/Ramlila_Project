@@ -21,7 +21,6 @@ export default function AddSalePage() {
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
-    email: '',
     address: '',
   });
   const [products, setProducts] = useState<ProductRow[]>([
@@ -50,7 +49,7 @@ export default function AddSalePage() {
         newProducts[index].total = newProducts[index].quantity * product.price;
       }
     } else if (field === 'quantity') {
-      newProducts[index].total = Number(value) * newProducts[index].price;
+      newProducts[index].total = parseFloat(String(value)) * newProducts[index].price;
     }
     
     setProducts(newProducts);
@@ -83,7 +82,6 @@ export default function AddSalePage() {
       customer: {
         name: customerInfo.name,
         phone: customerInfo.phone,
-        email: customerInfo.email || undefined,
         address: customerInfo.address || undefined,
       },
       products: validProducts.map(p => {
@@ -175,17 +173,6 @@ export default function AddSalePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Customer Email
-                  </label>
-                  <input
-                    type="email"
-                    value={customerInfo.email}
-                    onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Customer Address
                   </label>
                   <textarea
@@ -233,9 +220,11 @@ export default function AddSalePage() {
                         type="number"
                         required
                         min="0"
+                        step="0.01"
                         value={product.quantity || ''}
-                        onChange={(e) => updateProduct(index, 'quantity', Number(e.target.value))}
+                        onChange={(e) => updateProduct(index, 'quantity', parseFloat(e.target.value) || 0)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="0.00"
                       />
                     </div>
                     <div>

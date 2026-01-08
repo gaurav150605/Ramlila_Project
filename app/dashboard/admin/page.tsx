@@ -7,6 +7,7 @@ import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { FaShoppingCart, FaWarehouse, FaCookie, FaChartBar, FaUsers, FaCrown } from 'react-icons/fa';
 import { authService } from '@/lib/auth';
+import { store } from '@/lib/store';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -24,6 +25,8 @@ export default function AdminDashboardPage() {
       return;
     }
     setUser(currentUser);
+    // Reinitialize store with current user's data
+    store.setUserId(currentUser.id);
   }, [router]);
 
   if (!user) {
