@@ -14,10 +14,10 @@ type EmployeeDoc = {
   status: 'Active' | 'Inactive';
   address?: string;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
 };
 
-function stripMongoId<T extends Record<string, any>>(doc: T) {
+function stripMongoId<T extends { _id?: unknown }>(doc: T) {
   const { _id, ...rest } = doc;
   return rest;
 }
@@ -30,13 +30,16 @@ export async function GET(request: Request) {
   }
 
   const db = await getDb();
+
   const items = await db
     .collection<EmployeeDoc>('employees')
     .find({ userId })
     .sort({ createdAt: -1 })
     .toArray();
 
-  return NextResponse.json({ data: items.map(stripMongoId) });
+  return NextResponse.json({
+    data: items.map(stripMongoId),
+  });
 }
 
 /* ================== POST ================== */
@@ -52,7 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Employee name is required' }, { status: 400 });
   }
 
-  if (!body?.role) {
+  if (!body?.role?.trim()) {
     return NextResponse.json({ error: 'Role is required' }, { status: 400 });
   }
 
@@ -61,21 +64,21 @@ export async function POST(request: Request) {
   }
 
   if (typeof body.salary !== 'number' || Number.isNaN(body.salary)) {
-    return NextResponse.json({ error: 'Salary must be a number' }, { status: 400 });
+    return NextResponse.json({ error: 'Salary must be a valid number' }, { status: 400 });
   }
 
   const now = new Date().toISOString();
 
   const doc: EmployeeDoc = {
     userId,
-    id: body.id || crypto.randomUUID(), // better than Date.now()
+    id: body.id || crypto.randomUUID(),
     name: body.name.trim(),
-    contact: body.contact?.toString() || '',
-    role: body.role.toString(),
-    joiningDate: body.joiningDate.toString(),
+    contact: body.contact ? String(body.contact) : '',
+    role: body.role.trim(),
+    joiningDate: String(body.joiningDate),
     salary: body.salary,
-    status: body.status || 'Active',
-    address: body.address?.toString(),
+    status: body.status === 'Inactive' ? 'Inactive' : 'Active',
+    address: body.address ? String(body.address) : undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -100,19 +103,25 @@ export async function PUT(request: Request) {
   }
 
   const update: Partial<EmployeeDoc> = {
-    ...(body.name !== undefined && { name: String(body.name) }),
+    ...(body.name !== undefined && { name: String(body.name).trim() }),
     ...(body.contact !== undefined && { contact: String(body.contact) }),
-    ...(body.role !== undefined && { role: String(body.role) }),
+    ...(body.role !== undefined && { role: String(body.role).trim() }),
     ...(body.joiningDate !== undefined && { joiningDate: String(body.joiningDate) }),
-    ...(body.salary !== undefined && { salary: Number(body.salary) }),
-    ...(body.status !== undefined && { status: body.status }),
-    ...(body.address !== undefined && { address: body.address?.toString() }),
+    ...(body.salary !== undefined && {
+      salary: Number.isNaN(Number(body.salary)) ? 0 : Number(body.salary),
+    }),
+    ...(body.status !== undefined && {
+      status: body.status === 'Inactive' ? 'Inactive' : 'Active',
+    }),
+    ...(body.address !== undefined && {
+      address: body.address ? String(body.address) : undefined,
+    }),
     updatedAt: new Date().toISOString(),
   };
 
   const db = await getDb();
 
-  const result = await db
+  const updatedDoc = await db
     .collection<EmployeeDoc>('employees')
     .findOneAndUpdate(
       { userId, id: body.id },
@@ -120,11 +129,13 @@ export async function PUT(request: Request) {
       { returnDocument: 'after' }
     );
 
-  if (!result?.value) {
+  if (!updatedDoc) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ data: stripMongoId(result.value) });
+  return NextResponse.json({
+    data: stripMongoId(updatedDoc),
+  });
 }
 
 /* ================== DELETE ================== */
@@ -141,9 +152,12 @@ export async function DELETE(request: Request) {
   }
 
   const db = await getDb();
+
   const result = await db
     .collection<EmployeeDoc>('employees')
     .deleteOne({ userId, id: body.id });
 
-  return NextResponse.json({ ok: result.deletedCount === 1 });
+  return NextResponse.json({
+    ok: result.deletedCount === 1,
+  });
 }
