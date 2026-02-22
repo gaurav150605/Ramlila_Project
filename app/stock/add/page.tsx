@@ -1,8 +1,6 @@
 'use client';
-export const dynamic = "force-dynamic";
 
-
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
@@ -10,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FaPlus, FaArrowLeft, FaInfoCircle, FaLightbulb, FaSave } from 'react-icons/fa';
 import { store } from '@/lib/store';
 
-export default function AddStockPage() {
+function AddStockForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
@@ -249,5 +247,13 @@ export default function AddStockPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function AddStockPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>}>
+      <AddStockForm />
+    </Suspense>
   );
 }

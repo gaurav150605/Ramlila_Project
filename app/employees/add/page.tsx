@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FaPlus, FaArrowLeft, FaInfoCircle, FaLightbulb, FaSave, FaCalendarAlt } from 'react-icons/fa';
 import { store } from '@/lib/store';
 
-export default function AddEmployeePage() {
+function AddEmployeeForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
@@ -288,5 +288,13 @@ export default function AddEmployeePage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function AddEmployeePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-100 flex items-center justify-center">Loading...</div>}>
+      <AddEmployeeForm />
+    </Suspense>
   );
 }
