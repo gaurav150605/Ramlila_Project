@@ -13,13 +13,25 @@ export default function StockPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [itemToDelete, setItemToDelete] = useState<StockItem | null>(null);
 
   useEffect(() => {
     setStockItems(store.getStockItems());
   }, []);
 
-  const filteredItems = stockItems.filter((item) =>
+  const monthYearFilteredItems = stockItems.filter((item) => {
+    const itemDateRaw = item.date || item.createdAt.split('T')[0];
+    const itemDate = new Date(itemDateRaw);
+    if (Number.isNaN(itemDate.getTime())) return false;
+    return (
+      itemDate.getMonth() + 1 === currentMonth &&
+      itemDate.getFullYear() === currentYear
+    );
+  });
+
+  const filteredItems = monthYearFilteredItems.filter((item) =>
     item.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -42,7 +54,7 @@ export default function StockPage() {
 
   const handleExportCSV = () => {
     const headers = ['Item Name', 'Quantity', 'Unit', 'Date', 'Description'];
-    const rows = stockItems.map(item => [
+    const rows = filteredItems.map(item => [
       item.itemName,
       item.quantity.toString(),
       item.unit,
@@ -96,6 +108,34 @@ export default function StockPage() {
             </div>
           </div>
 
+          {/* Month/Year Selector */}
+          <div className="mb-6 flex items-center space-x-4">
+            <label className="text-sm font-medium">Month:</label>
+            <select
+              value={currentMonth}
+              onChange={(e) => setCurrentMonth(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                <option key={month} value={month}>
+                  {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+            <label className="text-sm font-medium">Year:</label>
+            <select
+              value={currentYear}
+              onChange={(e) => setCurrentYear(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
@@ -117,7 +157,7 @@ export default function StockPage() {
                 <FaWarehouse className="text-6xl text-gray-400" />
               </div>
               <h2 className="text-2xl font-bold text-gray-700 mb-2">No stock items found</h2>
-              <p className="text-gray-600 mb-6">Start by adding your first stock item.</p>
+              <p className="text-gray-600 mb-6">No records found for selected month and year.</p>
               <Link
                 href="/stock/add"
                 className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors"

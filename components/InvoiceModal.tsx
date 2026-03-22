@@ -55,7 +55,9 @@ export default function InvoiceModal({ sale, onClose }: InvoiceModalProps) {
               {sale.customer.address && <p className="text-gray-600 text-sm mt-2">{sale.customer.address}</p>}
             </div>
             <div className="text-right">
-              <p className="text-gray-600 text-sm">Invoice #: {sale.id}</p>
+              <p className="text-gray-600 text-sm">
+                Invoice #: {sale.invoiceNumber ?? '—'}
+              </p>
               <p className="text-gray-600 text-sm">Date: {sale.date}</p>
               <p className="text-gray-600 text-sm">Payment: {sale.paymentMethod}</p>
               <p className={`text-sm font-semibold mt-2 ${

@@ -35,6 +35,7 @@ export default function AddSalePage() {
     method: 'Cash',
     initialPayment: 0,
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setAvailableProducts(store.getProducts());
@@ -155,7 +156,10 @@ export default function AddSalePage() {
           : [],
     };
 
+    setIsSaving(true);
     store.addSale(sale);
+
+    setIsSaving(false);
     router.push('/sales');
   };
 
@@ -426,10 +430,11 @@ export default function AddSalePage() {
             <div className="bg-white rounded-lg shadow-md p-6">
               <button
                 onClick={handleSave}
+                disabled={isSaving}
                 className="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 font-medium"
               >
                 <FaSave />
-                <span>Save Sale</span>
+                <span>{isSaving ? 'Saving...' : 'Save Sale'}</span>
               </button>
             </div>
           </div>

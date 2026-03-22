@@ -12,6 +12,8 @@ import PaymentModal from '@/components/PaymentModal';
 export default function SalesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sales, setSales] = useState<Sale[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [selectedSaleForPayment, setSelectedSaleForPayment] = useState<Sale | null>(null);
 
@@ -23,7 +25,16 @@ export default function SalesPage() {
     setSales(store.getSales());
   };
 
-  const filteredSales = sales.filter(
+  const monthYearFilteredSales = sales.filter((sale) => {
+    const saleDate = new Date(sale.date);
+    if (Number.isNaN(saleDate.getTime())) return false;
+    return (
+      saleDate.getMonth() + 1 === currentMonth &&
+      saleDate.getFullYear() === currentYear
+    );
+  });
+
+  const filteredSales = monthYearFilteredSales.filter(
     (sale) =>
       sale.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       sale.customer.phone?.includes(searchQuery) ||
@@ -32,7 +43,7 @@ export default function SalesPage() {
 
   const handleExportCSV = () => {
     const headers = ['Date', 'Customer', 'Phone', 'Products', 'Total', 'Paid', 'Remaining', 'Payment Status', 'Payment Method'];
-    const rows = sales.map(sale => [
+    const rows = filteredSales.map(sale => [
       sale.date,
       sale.customer.name,
       sale.customer.phone || '',
@@ -111,6 +122,34 @@ export default function SalesPage() {
             </div>
           </div>
 
+          {/* Month/Year Selector */}
+          <div className="mb-6 flex items-center space-x-4">
+            <label className="text-sm font-medium">Month:</label>
+            <select
+              value={currentMonth}
+              onChange={(e) => setCurrentMonth(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                <option key={month} value={month}>
+                  {new Date(2000, month - 1).toLocaleString('default', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+            <label className="text-sm font-medium">Year:</label>
+            <select
+              value={currentYear}
+              onChange={(e) => setCurrentYear(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-md"
+            >
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i).map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Search Bar */}
           <div className="mb-6">
             <div className="relative">
@@ -144,7 +183,7 @@ export default function SalesPage() {
                 {filteredSales.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No sales found. Add your first sale to get started.
+                      No sales found for selected month and year.
                     </td>
                   </tr>
                 ) : (

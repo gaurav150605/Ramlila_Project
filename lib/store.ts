@@ -12,8 +12,10 @@ export interface PaymentRecord {
 
 export interface Sale {
   id: string;
+  /** Sequential display number for invoices (1, 2, 3, …). Internal `id` stays a UUID. */
+  invoiceNumber?: number;
   date: string;
-  customer: {
+  customer: { 
     name: string;
     phone: string;
     email?: string;
@@ -135,8 +137,18 @@ class Store {
     return this.sales.find(s => s.id === id);
   }
 
+  /** Next invoice number: max existing + 1, or 1 if none. */
+  getNextInvoiceNumber(): number {
+    const nums = this.sales
+      .map((s) => s.invoiceNumber)
+      .filter((n): n is number => typeof n === 'number' && n >= 1);
+    if (nums.length === 0) return 1;
+    return Math.max(...nums) + 1;
+  }
+
   addSale(sale: Sale): void {
-    this.sales.unshift(sale);
+    const invoiceNumber = sale.invoiceNumber ?? this.getNextInvoiceNumber();
+    this.sales.unshift({ ...sale, invoiceNumber });
     this.saveSales();
   }
 
@@ -343,6 +355,29 @@ class Store {
           }
           return sale;
         });
+
+        // Assign sequential invoice numbers (1, 2, 3, …) by date for legacy sales
+        const needsInvoiceNumbers = this.sales.some(
+          (s: Sale) => s.invoiceNumber === undefined || typeof s.invoiceNumber !== 'number'
+        );
+        if (needsInvoiceNumbers) {
+          const sorted = [...this.sales].sort((a, b) => {
+            const ta = new Date(a.date).getTime();
+            const tb = new Date(b.date).getTime();
+            if (Number.isNaN(ta) && Number.isNaN(tb)) return String(a.id).localeCompare(String(b.id));
+            if (Number.isNaN(ta)) return 1;
+            if (Number.isNaN(tb)) return -1;
+            if (ta !== tb) return ta - tb;
+            return String(a.id).localeCompare(String(b.id));
+          });
+          const idToInvoice = new Map<string, number>();
+          sorted.forEach((s, i) => idToInvoice.set(s.id, i + 1));
+          this.sales = this.sales.map((s) => ({
+            ...s,
+            invoiceNumber: idToInvoice.get(s.id) ?? s.invoiceNumber ?? 1,
+          }));
+        }
+
         // Save migrated sales
         this.saveSales();
       } else {
