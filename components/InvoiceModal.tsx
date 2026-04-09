@@ -1,6 +1,6 @@
 'use client';
 
-import { FaTimes, FaPrint } from 'react-icons/fa';
+import { FaTimes, FaPrint, FaWhatsapp } from 'react-icons/fa';
 import { type Sale } from '@/lib/store';
 
 interface InvoiceModalProps {
@@ -15,12 +15,52 @@ export default function InvoiceModal({ sale, onClose }: InvoiceModalProps) {
     window.print();
   };
 
+  const handleWhatsAppShare = () => {
+    let text = `*Ramlila Pedhewale Factory - Invoice*\n`;
+    text += `Bill To: ${sale.customer.name}\n`;
+    if (sale.invoiceNumber) text += `Invoice #: ${sale.invoiceNumber}\n`;
+    text += `Date: ${sale.date}\n\n`;
+    
+    text += `*Items:*\n`;
+    sale.products.forEach(p => {
+      text += `- ${p.productName} (x${p.quantity}): ₹${p.total.toLocaleString()}\n`;
+    });
+    
+    text += `\n*Subtotal:* ₹${sale.subtotal.toLocaleString()}`;
+    if (sale.discount > 0) text += `\n*Discount:* -₹${sale.discount.toLocaleString()}`;
+    if (sale.tax > 0) text += `\n*Tax:* ₹${sale.tax.toLocaleString()}`;
+    text += `\n*Total:* ₹${(sale.total || 0).toLocaleString()}`;
+    if ((sale.paidAmount || 0) > 0) text += `\n*Paid:* ₹${(sale.paidAmount || 0).toLocaleString()}`;
+    if ((sale.remainingAmount || 0) > 0) text += `\n*Remaining:* ₹${(sale.remainingAmount || 0).toLocaleString()}`;
+    
+    text += `\n\nStatus: ${sale.paymentStatus || 'Unpaid'}`;
+    
+    const encodedText = encodeURIComponent(text);
+    let phoneNumber = sale.customer.phone ? sale.customer.phone.replace(/\D/g, '') : '';
+    if (phoneNumber && phoneNumber.length === 10) {
+      phoneNumber = `91${phoneNumber}`;
+    }
+    
+    const url = phoneNumber 
+      ? `https://wa.me/${phoneNumber}?text=${encodedText}` 
+      : `https://wa.me/?text=${encodedText}`;
+      
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold">Invoice / Bill</h2>
           <div className="flex space-x-2">
+            <button
+              onClick={handleWhatsAppShare}
+              className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors flex items-center space-x-2"
+            >
+              <FaWhatsapp className="text-lg" />
+              <span>WhatsApp</span>
+            </button>
             <button
               onClick={handlePrint}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors flex items-center space-x-2"
