@@ -47,6 +47,16 @@ export interface StockItem {
   description: string;
   date: string;
   createdAt: string;
+  lowStockThreshold?: number;
+}
+
+export interface StockLog {
+  id: string;
+  stockItemId: string;
+  date: string;
+  quantityChange: number;
+  newQuantity: number;
+  reason: string;
 }
 
 export interface Product {
@@ -76,35 +86,22 @@ export interface Attendance {
   status: 'Present' | 'Absent' | 'Leave';
 }
 
+export interface AdvanceRecord {
+  id: string;
+  employeeId: string;
+  amount: number;
+  date: string;
+  reason?: string;
+}
+
 class Store {
   private sales: Sale[] = [];
   private stockItems: StockItem[] = [];
-  private products: Product[] = [
-    { id: '1', name: 'Kesar Pedha', description: 'Premium Kesar Pedha', price: 200, unit: 'kg' },
-    { id: '2', name: 'Chocolate Pedha', description: 'Delicious Chocolate Pedha', price: 250, unit: 'kg' },
-    { id: '3', name: 'Plain Pedha', description: 'Traditional Plain Pedha', price: 180, unit: 'kg' },
-  ];
-  private employees: Employee[] = [
-    {
-      id: '1',
-      name: 'gaurav',
-      contact: '9022776765',
-      role: 'Accountant',
-      joiningDate: 'Dec 05, 2025',
-      salary: 15000,
-      status: 'Active',
-    },
-    {
-      id: '2',
-      name: 'gaurav',
-      contact: '0902277676',
-      role: 'Worker',
-      joiningDate: 'Oct 29, 2025',
-      salary: 12000,
-      status: 'Active',
-    },
-  ];
+  private products: Product[] = [];
+  private employees: Employee[] = [];
   private attendance: Attendance[] = [];
+  private stockLogs: StockLog[] = [];
+  private advances: AdvanceRecord[] = [];
   private currentUserId: string | null = null;
 
   // Get user-specific localStorage key
@@ -195,24 +192,71 @@ class Store {
   addStockItem(item: StockItem): void {
     this.stockItems.push(item);
     this.saveStockItems();
+    
+    // Add initial log
+    this.addStockLog({
+      id: Date.now().toString(),
+      stockItemId: item.id,
+      date: new Date().toISOString(),
+      quantityChange: item.quantity,
+      newQuantity: item.quantity,
+      reason: 'Initial stock addition'
+    });
   }
 
   updateStockItem(id: string, item: Partial<StockItem>): void {
     const index = this.stockItems.findIndex(i => i.id === id);
     if (index !== -1) {
+      const oldQuantity = this.stockItems[index].quantity;
+      const newQuantity = item.quantity !== undefined ? item.quantity : oldQuantity;
+      
       this.stockItems[index] = { ...this.stockItems[index], ...item };
       this.saveStockItems();
+
+      // Log quantity change if it changed
+      if (oldQuantity !== newQuantity) {
+        this.addStockLog({
+          id: Date.now().toString(),
+          stockItemId: id,
+          date: new Date().toISOString(),
+          quantityChange: newQuantity - oldQuantity,
+          newQuantity: newQuantity,
+          reason: 'Manual quantity update'
+        });
+      }
     }
   }
 
   deleteStockItem(id: string): void {
     this.stockItems = this.stockItems.filter(item => item.id !== id);
     this.saveStockItems();
+    // Also delete associated logs
+    this.stockLogs = this.stockLogs.filter(log => log.stockItemId !== id);
+    this.saveStockLogs();
   }
 
   private saveStockItems(): void {
     if (typeof window !== 'undefined') {
       localStorage.setItem(this.getStorageKey('stockItems'), JSON.stringify(this.stockItems));
+    }
+  }
+
+  // Stock Logs methods
+  getStockLogs(itemId?: string): StockLog[] {
+    if (itemId) {
+      return this.stockLogs.filter(log => log.stockItemId === itemId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+    return this.stockLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  private addStockLog(log: StockLog): void {
+    this.stockLogs.push(log);
+    this.saveStockLogs();
+  }
+
+  private saveStockLogs(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.getStorageKey('stockLogs'), JSON.stringify(this.stockLogs));
     }
   }
 
@@ -313,6 +357,39 @@ class Store {
     return attendance.filter(a => a.status === 'Present').length;
   }
 
+  // Advance methods
+  getAdvances(employeeId?: string, month?: string, year?: string): AdvanceRecord[] {
+    let filtered = this.advances;
+    if (employeeId) {
+      filtered = filtered.filter(a => a.employeeId === employeeId);
+    }
+    if (month && year) {
+      filtered = filtered.filter(a => {
+        const dateStr = a.date;
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return false;
+        return d.getMonth() + 1 === parseInt(month) && d.getFullYear() === parseInt(year);
+      });
+    }
+    return filtered;
+  }
+
+  addAdvance(advance: AdvanceRecord): void {
+    this.advances.push(advance);
+    this.saveAdvances();
+  }
+
+  deleteAdvance(id: string): void {
+    this.advances = this.advances.filter(a => a.id !== id);
+    this.saveAdvances();
+  }
+
+  private saveAdvances(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(this.getStorageKey('advances'), JSON.stringify(this.advances));
+    }
+  }
+
   // Initialize from localStorage for current user
   init(): void {
     if (typeof window !== 'undefined') {
@@ -407,11 +484,7 @@ class Store {
         this.products = JSON.parse(savedProducts);
       } else {
         // Initialize with default products for new users
-        this.products = [
-          { id: '1', name: 'Kesar Pedha', description: 'Premium Kesar Pedha', price: 200, unit: 'kg' },
-          { id: '2', name: 'Chocolate Pedha', description: 'Delicious Chocolate Pedha', price: 250, unit: 'kg' },
-          { id: '3', name: 'Plain Pedha', description: 'Traditional Plain Pedha', price: 180, unit: 'kg' },
-        ];
+        this.products = [];
         this.saveProducts();
       }
 
@@ -427,6 +500,20 @@ class Store {
         this.attendance = JSON.parse(savedAttendance);
       } else {
         this.attendance = [];
+      }
+
+      const savedStockLogs = localStorage.getItem(this.getStorageKey('stockLogs'));
+      if (savedStockLogs) {
+        this.stockLogs = JSON.parse(savedStockLogs);
+      } else {
+        this.stockLogs = [];
+      }
+
+      const savedAdvances = localStorage.getItem(this.getStorageKey('advances'));
+      if (savedAdvances) {
+        this.advances = JSON.parse(savedAdvances);
+      } else {
+        this.advances = [];
       }
     }
   }

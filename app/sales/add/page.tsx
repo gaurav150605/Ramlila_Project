@@ -5,8 +5,9 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FaUser, FaShoppingCart, FaBars, FaArrowLeft, FaSave } from 'react-icons/fa';
-import { store, type Product } from '@/lib/store';
+import { FaUser, FaShoppingCart, FaBars, FaArrowLeft, FaSave, FaWhatsapp, FaPrint, FaCheckCircle, FaFileAlt, FaTimes } from 'react-icons/fa';
+import { store, type Product, type Sale } from '@/lib/store';
+import InvoiceModal from '@/components/InvoiceModal';
 
 interface ProductRow {
   productId: string;
@@ -36,6 +37,80 @@ export default function AddSalePage() {
     initialPayment: 0,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [savedSale, setSavedSale] = useState<Sale | null>(null);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [whatsappAutoShare, setWhatsappAutoShare] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('whatsappAutoShare');
+      if (saved === 'true') {
+        setWhatsappAutoShare(true);
+      }
+    }
+  }, []);
+
+  const handleToggleAutoShare = (checked: boolean) => {
+    setWhatsappAutoShare(checked);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('whatsappAutoShare', checked ? 'true' : 'false');
+    }
+  };
+
+  const getWhatsAppShareUrl = (sale: Sale) => {
+    let text = `*Ramlila Pedhewale Factory - Invoice*\n`;
+    text += `Bill To: ${sale.customer.name}\n`;
+    if (sale.invoiceNumber) text += `Invoice #: ${sale.invoiceNumber}\n`;
+    text += `Date: ${sale.date}\n\n`;
+    
+    text += `*Items:*\n`;
+    sale.products.forEach(p => {
+      text += `- ${p.productName} (x${p.quantity}): ₹${p.total.toLocaleString()}\n`;
+    });
+    
+    text += `\n*Subtotal:* ₹${sale.subtotal.toLocaleString()}`;
+    if (sale.discount > 0) text += `\n*Discount:* -₹${sale.discount.toLocaleString()}`;
+    if (sale.tax > 0) text += `\n*Tax:* ₹${sale.tax.toLocaleString()}`;
+    text += `\n*Total:* ₹${(sale.total || 0).toLocaleString()}`;
+    if ((sale.paidAmount || 0) > 0) text += `\n*Paid:* ₹${(sale.paidAmount || 0).toLocaleString()}`;
+    if ((sale.remainingAmount || 0) > 0) text += `\n*Remaining:* ₹${(sale.remainingAmount || 0).toLocaleString()}`;
+    
+    text += `\n\nStatus: ${sale.paymentStatus || 'Unpaid'}`;
+    
+    const encodedText = encodeURIComponent(text);
+    let phoneNumber = sale.customer.phone ? sale.customer.phone.replace(/\D/g, '') : '';
+    if (phoneNumber && phoneNumber.length === 10) {
+      phoneNumber = `91${phoneNumber}`;
+    }
+    
+    return phoneNumber 
+      ? `https://wa.me/${phoneNumber}?text=${encodedText}` 
+      : `https://wa.me/?text=${encodedText}`;
+  };
+
+  const handleWhatsAppShare = (sale: Sale) => {
+    const url = getWhatsAppShareUrl(sale);
+    window.open(url, '_blank');
+  };
+
+  const handleResetForm = () => {
+    setCustomerInfo({
+      name: '',
+      phone: '',
+      address: '',
+    });
+    setProducts([
+      { productId: '', quantity: 0, price: 0, total: 0 },
+    ]);
+    setPaymentInfo({
+      discount: 0,
+      tax: 0,
+      method: 'Cash',
+      initialPayment: 0,
+    });
+    setSavedSale(null);
+    setShowInvoiceModal(false);
+  };
 
   useEffect(() => {
     setAvailableProducts(store.getProducts());
@@ -107,14 +182,16 @@ export default function AddSalePage() {
       alert('Please add at least one valid product');
       return;
     }
+    const nextInvoiceNumber = store.getNextInvoiceNumber();
 
     const safeInitialPayment = Math.min(
       Number(paymentInfo.initialPayment) || 0,
       totalAmount
     );
 
-    const sale = {
+    const sale: Sale = {
       id: crypto.randomUUID(),
+      invoiceNumber: nextInvoiceNumber,
       date: new Date().toISOString().split('T')[0],
       customer: {
         name: customerName,
@@ -158,9 +235,14 @@ export default function AddSalePage() {
 
     setIsSaving(true);
     store.addSale(sale);
-
     setIsSaving(false);
-    router.push('/sales');
+
+    if (whatsappAutoShare) {
+      const url = getWhatsAppShareUrl(sale);
+      window.open(url, '_blank');
+    }
+
+    setSavedSale(sale);
   };
 
   return (
@@ -426,8 +508,22 @@ export default function AddSalePage() {
               </div>
             </div>
 
-            {/* Save Button */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            {/* Save Button & Sharing Options */}
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+              <div className="flex items-center space-x-3 bg-green-50 p-3 rounded-md border border-green-100">
+                <input
+                  type="checkbox"
+                  id="whatsappAutoShare"
+                  checked={whatsappAutoShare}
+                  onChange={(e) => handleToggleAutoShare(e.target.checked)}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded cursor-pointer"
+                />
+                <label htmlFor="whatsappAutoShare" className="text-sm font-medium text-green-800 cursor-pointer flex items-center space-x-1.5 select-none animate-pulse">
+                  <FaWhatsapp className="text-green-600 text-base" />
+                  <span>Auto-open WhatsApp share after saving</span>
+                </label>
+              </div>
+
               <button
                 onClick={handleSave}
                 disabled={isSaving}
@@ -479,6 +575,76 @@ export default function AddSalePage() {
       </div>
 
       <Footer />
+
+      {/* Success Modal */}
+      {savedSale && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center border border-gray-100 animate-fade-in">
+            <div className="flex justify-center mb-4">
+              <div className="bg-green-100 p-4 rounded-full">
+                <FaCheckCircle className="text-5xl text-green-600 animate-bounce" />
+              </div>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Sale Saved Successfully!</h2>
+            <p className="text-gray-600 mb-6">
+              Invoice <span className="font-semibold text-gray-800">#{savedSale.invoiceNumber}</span> has been created for <span className="font-semibold text-gray-800">{savedSale.customer.name}</span>.
+            </p>
+            
+            <div className="bg-blue-50 rounded-xl p-4 mb-6 flex justify-between items-center">
+              <span className="text-gray-600 font-medium">Total Amount:</span>
+              <span className="text-xl font-bold text-blue-600">₹{savedSale.total.toLocaleString()}</span>
+            </div>
+
+            {whatsappAutoShare && (
+              <p className="text-xs text-green-600 font-medium mb-4 flex items-center justify-center space-x-1">
+                <span>✓ WhatsApp sharing window triggered</span>
+              </p>
+            )}
+
+            <div className="space-y-3">
+              <button
+                onClick={() => handleWhatsAppShare(savedSale)}
+                className="w-full bg-green-500 text-white py-3 rounded-xl hover:bg-green-600 transition-all font-semibold flex items-center justify-center space-x-2 shadow-lg shadow-green-100 hover:shadow-green-200"
+              >
+                <FaWhatsapp className="text-xl" />
+                <span>Share on WhatsApp</span>
+              </button>
+              
+              <button
+                onClick={() => setShowInvoiceModal(true)}
+                className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 transition-all font-semibold flex items-center justify-center space-x-2 shadow-lg shadow-blue-100 hover:shadow-blue-200"
+              >
+                <FaFileAlt />
+                <span>View & Print Invoice</span>
+              </button>
+
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  onClick={handleResetForm}
+                  className="bg-gray-100 text-gray-700 py-3 rounded-xl hover:bg-gray-200 transition-all font-medium"
+                >
+                  Create New Sale
+                </button>
+                <button
+                  onClick={() => router.push('/sales')}
+                  className="border border-gray-300 text-gray-700 py-3 rounded-xl hover:bg-gray-50 transition-all font-medium"
+                >
+                  Go to Sales
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Modal nested inside success flow */}
+      {showInvoiceModal && savedSale && (
+        <InvoiceModal
+          sale={savedSale}
+          onClose={() => setShowInvoiceModal(false)}
+        />
+      )}
     </div>
   );
 }

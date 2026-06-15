@@ -86,3 +86,8 @@ npm start
 
 © 2024 Ramlila Pedhewale Factory. All rights reserved.
 
+
+## Render Cold Starts
+
+Please note that this application is hosted on Render's free tier. As a result, the backend/server may spin down after 15 minutes of inactivity. When returning to the app after a period of inactivity, the initial page load or API request may experience a 'cold start' delay of 30 to 60 seconds while the server spins back up.
+

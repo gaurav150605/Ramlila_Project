@@ -20,6 +20,7 @@ function AddStockForm() {
     unit: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
+    lowStockThreshold: '10',
   });
 
   useEffect(() => {
@@ -32,6 +33,7 @@ function AddStockForm() {
           unit: item.unit,
           description: item.description,
           date: item.date || item.createdAt.split('T')[0],
+          lowStockThreshold: item.lowStockThreshold?.toString() || '10',
         });
       }
     }
@@ -52,6 +54,7 @@ function AddStockForm() {
         unit: formData.unit,
         description: formData.description,
         date: formData.date,
+        lowStockThreshold: Number(formData.lowStockThreshold),
       });
     } else {
       const stockItem = {
@@ -62,6 +65,7 @@ function AddStockForm() {
         description: formData.description,
         date: formData.date,
         createdAt: new Date().toISOString(),
+        lowStockThreshold: Number(formData.lowStockThreshold),
       };
       store.addStockItem(stockItem);
     }
@@ -149,6 +153,20 @@ function AddStockForm() {
                     onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Low Stock Alert Threshold
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.lowStockThreshold}
+                    onChange={(e) => setFormData({ ...formData, lowStockThreshold: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. 10"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Item will be highlighted when quantity falls below this number.</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

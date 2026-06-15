@@ -1,6 +1,7 @@
 'use client';
 
-import { FaTimes, FaPrint, FaWhatsapp } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaTimes, FaPrint, FaWhatsapp, FaCopy, FaCheck } from 'react-icons/fa';
 import { type Sale } from '@/lib/store';
 
 interface InvoiceModalProps {
@@ -9,13 +10,15 @@ interface InvoiceModalProps {
 }
 
 export default function InvoiceModal({ sale, onClose }: InvoiceModalProps) {
+  const [copied, setCopied] = useState(false);
+
   if (!sale) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  const handleWhatsAppShare = () => {
+  const getInvoiceText = () => {
     let text = `*Ramlila Pedhewale Factory - Invoice*\n`;
     text += `Bill To: ${sale.customer.name}\n`;
     if (sale.invoiceNumber) text += `Invoice #: ${sale.invoiceNumber}\n`;
@@ -34,7 +37,22 @@ export default function InvoiceModal({ sale, onClose }: InvoiceModalProps) {
     if ((sale.remainingAmount || 0) > 0) text += `\n*Remaining:* ₹${(sale.remainingAmount || 0).toLocaleString()}`;
     
     text += `\n\nStatus: ${sale.paymentStatus || 'Unpaid'}`;
-    
+    return text;
+  };
+
+  const handleCopyToClipboard = async () => {
+    const text = getInvoiceText();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    const text = getInvoiceText();
     const encodedText = encodeURIComponent(text);
     let phoneNumber = sale.customer.phone ? sale.customer.phone.replace(/\D/g, '') : '';
     if (phoneNumber && phoneNumber.length === 10) {
@@ -60,6 +78,16 @@ export default function InvoiceModal({ sale, onClose }: InvoiceModalProps) {
             >
               <FaWhatsapp className="text-lg" />
               <span>WhatsApp</span>
+            </button>
+            <button
+              onClick={handleCopyToClipboard}
+              className={`${
+                copied ? 'bg-green-600' : 'bg-gray-600'
+              } text-white px-4 py-2 rounded-md hover:opacity-90 transition-all flex items-center space-x-2`}
+              title="Copy formatted text invoice to clipboard"
+            >
+              {copied ? <FaCheck className="text-sm" /> : <FaCopy className="text-sm" />}
+              <span>{copied ? 'Copied!' : 'Copy Text'}</span>
             </button>
             <button
               onClick={handlePrint}
